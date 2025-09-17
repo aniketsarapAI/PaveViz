@@ -10,42 +10,71 @@ if (!API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-const BASE_PROMPT = `You are an expert AI specializing in photorealistic product visualization for a paving company. Your task is to show a customer how a product from our catalog (the second image provided) will look when installed in their space (the first image provided).
+const INITIAL_GENERATION_PROMPT = `You are an AI specializing in photorealistic architectural visualization. Your task is to replace the ground surface in an image with a new paving texture.
 
-**CORE MISSION:**
-- Replace ONLY the existing ground surface (paving, grass, deck, etc.) with our product.
-- Preserve EVERYTHING else in the original photo.
-- The final image MUST be a perfect pixel-for-pixel overlay with the original, with the only change being the new ground surface.
+**Instructions:**
+1.  **Input:** You will receive two images. The first is the scene (e.g., a garden or patio). The second is a texture swatch of the paving material.
+2.  **Action:** In the first image, identify and replace ONLY the primary ground surface (like grass, old pavers, or dirt) with the texture from the second image.
+3.  **Preservation:** All other elements in the scene—such as furniture, plants, walls, doors, etc.—must remain completely untouched and unmodified.
+4.  **Realism:** The new paving must seamlessly integrate into the scene, matching the original image's perspective, scale, lighting, and shadows.
+5.  **Framing:** The output image MUST have the exact same dimensions as the original scene image. Do not crop, zoom, or alter the camera angle.
+6.  **Output:** Return only a single, high-quality, photorealistic image of the result. Do not return any text.`;
 
-**NON-NEGOTIABLE TECHNICAL REQUIREMENT: PERFECT FRAME ALIGNMENT**
-- This is the most important instruction.
-- The output image's dimensions, aspect ratio, zoom level, and framing MUST BE IDENTICAL to the original input image.
-- IT IS STRICTLY FORBIDDEN to crop, zoom in, zoom out, or alter the composition in any way.
-- Any deviation from the original frame makes the result a failure.
+const REFINEMENT_PROMPT = `You are an expert AI photo editor. A user has provided an image they want to modify. Your task is to apply their requested change directly to the image while maintaining photorealism and preserving all other aspects of the image.
 
-**WHAT TO REPLACE:**
-- Existing paving, concrete slabs, decking, grass areas, dirt patches, or any ground surface intended for paving.
+**User's Request:**`;
 
-**WHAT TO PRESERVE:**
-- All furniture, planters, decorative items, plants, trees, walls, buildings, people, and pets.
-- The original lighting, shadows, and weather conditions must be perfectly matched.
-- The exact camera angle and perspective.
 
-**INSTALLATION STANDARDS:**
-- Install the paving in a professional, realistic pattern.
-- Use appropriate joint spacing and cut stones realistically around obstacles (e.g., furniture legs, drains).
-- Perfectly match the scale and perspective of the original photo.
+const handleApiError = (error: unknown): Error => {
+  console.error("Error calling Gemini API:", error);
 
-**OUTPUT:**
-A single photorealistic image that is a perfect overlay of the original, showing only the new paving installed.`;
+  let apiMessage = "An unknown error occurred while communicating with the AI.";
+  if (typeof error === 'object' && error !== null) {
+    const apiError = error as any;
+    if (apiError.error && apiError.error.message) {
+      apiMessage = apiError.error.message; // Standard Google API error
+    } else if (apiError.message) {
+      apiMessage = apiError.message; // Generic Error object
+    } else {
+      try {
+        apiMessage = JSON.stringify(error);
+      } catch {
+        apiMessage = 'Could not stringify error object.';
+      }
+    }
+  } else if (typeof error === 'string') {
+    apiMessage = error;
+  }
 
-export const visualizePaving = async (siteImage: ImageFile, pavingImage: ImageFile, advancedPrompt: string): Promise<ImageFile | null> => {
+  let userFriendlyMessage = apiMessage;
+
+  if (apiMessage.toLowerCase().includes('internal error')) {
+    userFriendlyMessage = "The AI service encountered an internal error. This is usually temporary. Please try again in a few moments."
+  } else if (apiMessage.includes('400') || apiMessage.toLowerCase().includes('request is invalid')) {
+    userFriendlyMessage = "The AI model rejected the request. This can be due to low-quality images or an unsupported prompt. Please try again with a clearer photo.";
+  } else if (apiMessage.includes('429')) {
+    userFriendlyMessage = "API rate limit exceeded. Please wait a moment and try again.";
+  } else if (apiMessage.toLowerCase().includes('api key')) {
+    userFriendlyMessage = "The API Key is invalid or missing. Please ensure it is configured correctly.";
+  }
+
+  return new Error(`Failed to generate image: ${userFriendlyMessage}`);
+}
+
+const processApiResponse = async (response: any): Promise<ImageFile | null> => {
+  for (const part of response.candidates[0].content.parts) {
+    if (part.inlineData) {
+      const dataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      const result = await processDataUrlToImageFile(dataUrl);
+      return result;
+    }
+  }
+  return null; // If no image part is found
+}
+
+
+export const generateInitialVisualization = async (siteImage: ImageFile, pavingImage: ImageFile): Promise<ImageFile | null> => {
   try {
-    // Dynamically construct the prompt based on user input
-    const finalPrompt = advancedPrompt.trim()
-      ? `${BASE_PROMPT}\n\nAdditionally, follow this specific user instruction for refinement: "${advancedPrompt}"`
-      : BASE_PROMPT;
-
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image-preview',
       contents: {
@@ -63,42 +92,80 @@ export const visualizePaving = async (siteImage: ImageFile, pavingImage: ImageFi
             },
           },
           {
-            text: finalPrompt,
+            text: INITIAL_GENERATION_PROMPT,
           },
-        ],
+        ]
       },
       config: {
         responseModalities: [Modality.IMAGE, Modality.TEXT],
       },
     });
 
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        const dataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        const result = await processDataUrlToImageFile(dataUrl);
-        return result;
-      }
-    }
-    // If no image part is found in the response
-    return null;
+    return await processApiResponse(response);
 
   } catch (error) {
-    console.error("Error calling Gemini API:", error);
+    throw handleApiError(error);
+  }
+};
 
-    let detailedMessage = "An unknown error occurred while communicating with the AI.";
 
-    if (error instanceof Error) {
-        if (error.message.includes('400')) {
-            detailedMessage = "The AI model rejected the request. This can be due to low-quality images or an unsupported prompt. Please try again with a clearer photo.";
-        } else if (error.message.includes('429')) {
-            detailedMessage = "API rate limit exceeded. Please wait a moment and try again, or check your quota in your Google AI Platform console.";
-        } else if (error.message.toLowerCase().includes('api key')) {
-             detailedMessage = "The API Key is invalid or missing. Please ensure it is configured correctly.";
-        } else {
-             detailedMessage = error.message;
-        }
-    }
-    
-    throw new Error(`Failed to generate image: ${detailedMessage}`);
+export const refineVisualization = async (baseImage: ImageFile, refinementPrompt: string): Promise<ImageFile | null> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image-preview',
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: baseImage.base64,
+              mimeType: baseImage.mimeType,
+            },
+          },
+          {
+            text: `${REFINEMENT_PROMPT} "${refinementPrompt}"`,
+          },
+        ]
+      },
+      config: {
+        responseModalities: [Modality.IMAGE, Modality.TEXT],
+      },
+    });
+
+    return await processApiResponse(response);
+
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+const SUMMARY_PROMPT = `You are an expert copywriter. A user provided a short, imperative instruction to an AI photo editor. Your task is to convert this instruction into a short, elegant, past-tense description of the change that was made. This description will be used as a bullet point in a PDF report.
+
+Rules:
+- Keep it concise (2-5 words).
+- Start with a verb.
+- Do not use punctuation.
+
+Examples:
+- User Input: "make the paving stones a bit larger" -> Your Output: "Increased paving stone size"
+- User Input: "Don't cover the flower pot on the left" -> Your Output: "Preserved flower pot"
+- User Input: "add more sunlight" -> Your Output: "Enhanced sunlight and shadows"
+- User Input: "change the color to grey" -> Your Output: "Adjusted paving color to grey"
+
+User Input:`;
+
+export const summarizeRefinement = async (refinementPrompt: string): Promise<string> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `${SUMMARY_PROMPT} "${refinementPrompt}"`,
+      // Disable thinking for this simple, low-latency task
+      config: { thinkingConfig: { thinkingBudget: 0 } }
+    });
+    // Return the trimmed text, or the original prompt as a fallback
+    return response.text.trim() || refinementPrompt;
+  } catch (error) {
+    console.error("Error summarizing refinement:", error);
+    // Fallback to the original prompt if summarization fails
+    return refinementPrompt;
   }
 };

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { ImageFile, Product, ProductType } from '../types';
 import { CheckIcon } from './icons/CheckIcon';
-import { Spinner } from './Spinner';
+import { SimplePavingAnimation } from './SimplePavingAnimation';
 import { PhotoIcon } from './icons/PhotoIcon';
 import { processDataUrlToImageFile } from '../utils/fileUtils';
 
@@ -10,11 +10,12 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxzv3n-bAjKxK9B
 
 interface PavingSelectorProps {
   onPavingChange: (paving: { image: ImageFile | null; name: string | null }) => void;
+  onIsLoadingChange: (isLoading: boolean) => void;
 }
 
 const CATEGORIES: ProductType[] = ['porcelain', 'stone', 'clay'];
 
-export const PavingSelector: React.FC<PavingSelectorProps> = ({ onPavingChange }) => {
+export const PavingSelector: React.FC<PavingSelectorProps> = ({ onPavingChange, onIsLoadingChange }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +72,7 @@ export const PavingSelector: React.FC<PavingSelectorProps> = ({ onPavingChange }
     
     setSelectedProduct(product);
     setIsSwatchLoading(product.product_file_id);
-    onPavingChange({ image: null, name: null }); 
+    onIsLoadingChange(true); // Inform parent we are loading
 
     try {
         const response = await fetch(`${APPS_SCRIPT_URL}?fileId=${product.product_file_id}`);
@@ -85,8 +86,6 @@ export const PavingSelector: React.FC<PavingSelectorProps> = ({ onPavingChange }
         }
         
         if (data.product_img_dataUrl) {
-            // Fix: Use the utility function to create a complete ImageFile object,
-            // including width and height, to satisfy the ImageFile type.
             const imageFile = await processDataUrlToImageFile(data.product_img_dataUrl);
             onPavingChange({ image: imageFile, name: product.product_name });
         }
@@ -94,8 +93,10 @@ export const PavingSelector: React.FC<PavingSelectorProps> = ({ onPavingChange }
         console.error(err);
         setError("Could not load selected paving swatch. Please try again.");
         setSelectedProduct(null);
+        onPavingChange({ image: null, name: null });
     } finally {
         setIsSwatchLoading(null);
+        onIsLoadingChange(false); // Inform parent we are done loading
     }
   };
   
@@ -177,7 +178,7 @@ export const PavingSelector: React.FC<PavingSelectorProps> = ({ onPavingChange }
                           
                           {isSwatchLoading === product.product_file_id && (
                               <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
-                                  <Spinner />
+                                  <SimplePavingAnimation />
                               </div>
                           )}
 

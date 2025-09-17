@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+
+import React, { useState, useCallback } from 'react';
 import { Header } from './components/Header';
 import { ImageUploader } from './components/ImageUploader';
 import { PavingSelector } from './components/PavingSelector';
 import { ResultDisplay } from './components/ResultDisplay';
 import { Gallery } from './components/Gallery';
-import { visualizePaving } from './services/geminiService';
+import { generateInitialVisualization, refineVisualization, summarizeRefinement } from './services/geminiService';
 import type { ImageFile, GalleryItem } from './types';
 
 interface PavingSelection {
@@ -18,9 +19,22 @@ const App: React.FC = () => {
   const [resultImage, setResultImage] = useState<ImageFile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefining, setIsRefining] = useState<boolean>(false);
+  const [isSwatchLoading, setIsSwatchLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [advancedPrompt, setAdvancedPrompt] = useState<string>('');
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
+
+  const handleSiteImageChange = useCallback((image: ImageFile | null) => {
+    setSiteImage(image);
+    setResultImage(null); // Reset result on new image
+    setError(null);
+  }, []);
+
+  const handlePavingSelectionChange = useCallback((selection: PavingSelection) => {
+    setPavingSelection(selection);
+    setResultImage(null); // Reset result on new selection
+    setError(null);
+  }, []);
 
   const handleVisualize = async () => {
     if (!siteImage || !pavingSelection.image) {
@@ -34,15 +48,16 @@ const App: React.FC = () => {
     setAdvancedPrompt(''); // Reset prompt for new visualizations
 
     try {
-      // For the first generation, we use an empty prompt.
-      const generatedImage = await visualizePaving(siteImage, pavingSelection.image, '');
+      const generatedImage = await generateInitialVisualization(siteImage, pavingSelection.image);
       if (generatedImage) {
         setResultImage(generatedImage);
         const newGalleryItem: GalleryItem = {
           id: Date.now().toString(),
           siteImage,
-          resultImage: generatedImage,
+          generatedImage,
           pavingName: pavingSelection.name || 'Unknown Paving',
+          description: `Initial visualization with ${pavingSelection.name || 'Unknown Paving'}`,
+          isInitial: true,
         };
         setGallery(prevGallery => [newGalleryItem, ...prevGallery]);
       } else {
@@ -57,8 +72,8 @@ const App: React.FC = () => {
   };
 
   const handleRefine = async () => {
-    if (!siteImage || !pavingSelection.image || !resultImage) {
-      setError("Cannot refine without an initial image and selection.");
+    if (!resultImage) {
+      setError("Cannot refine without an initial result. Please generate an image first.");
       return;
     }
      if (!advancedPrompt.trim()) {
@@ -66,21 +81,34 @@ const App: React.FC = () => {
       return;
     }
 
+    const latestGalleryItem = gallery[0];
+    if (!latestGalleryItem) {
+      setError("Cannot refine, no design history found.");
+      return;
+    }
+
     setIsRefining(true);
     setError(null);
 
     try {
-      const refinedImage = await visualizePaving(siteImage, pavingSelection.image, advancedPrompt);
+      const refinedImage = await refineVisualization(resultImage, advancedPrompt);
       if (refinedImage) {
         setResultImage(refinedImage);
-        // Smartly update the most recent gallery item instead of adding a new one
-        setGallery(prevGallery => {
-          const newGallery = [...prevGallery];
-          if (newGallery.length > 0) {
-            newGallery[0] = { ...newGallery[0], resultImage: refinedImage };
-          }
-          return newGallery;
-        });
+        
+        const summary = await summarizeRefinement(advancedPrompt);
+
+        const newGalleryItem: GalleryItem = {
+          id: Date.now().toString(),
+          siteImage: latestGalleryItem.siteImage, // Persist the original site image
+          generatedImage: refinedImage,
+          pavingName: latestGalleryItem.pavingName, // Persist the original paving name
+          description: summary,
+          isInitial: false,
+        };
+        
+        setGallery(prevGallery => [newGalleryItem, ...prevGallery]);
+        
+        setAdvancedPrompt(''); // Clear prompt after successful refinement
       } else {
         setError("The AI could not refine the image. Please try adjusting your instructions.");
       }
@@ -92,7 +120,13 @@ const App: React.FC = () => {
     }
   };
   
-  const isButtonDisabled = !siteImage || !pavingSelection.image || isLoading || isRefining;
+  const isVisualizeDisabled = !siteImage || !pavingSelection.image || isLoading || isRefining || isSwatchLoading;
+
+  const getButtonText = () => {
+    if (isLoading) return 'Visualizing...';
+    if (isSwatchLoading) return 'Loading Paving...';
+    return '✨ Visualize Paving';
+  };
 
   return (
     <div className="min-h-screen font-sans text-slate-800 dark:text-slate-200">
@@ -104,29 +138,32 @@ const App: React.FC = () => {
               id="site-photo"
               label="1. Upload Site Photo"
               description="Your garden, patio, or driveway."
-              onImageChange={setSiteImage}
+              onImageChange={handleSiteImageChange}
             />
-            <PavingSelector onPavingChange={setPavingSelection} />
+            <PavingSelector 
+              onPavingChange={handlePavingSelectionChange}
+              onIsLoadingChange={setIsSwatchLoading}
+            />
           </div>
+        </div>
 
-          <div className="mt-8 text-center">
+        <div className="my-8 md:my-12 text-center">
             <button
               onClick={handleVisualize}
-              disabled={isButtonDisabled}
+              disabled={isVisualizeDisabled}
               className={`
                 px-8 py-4 text-lg font-bold text-white rounded-full transition-all duration-300 ease-in-out
-                ${isButtonDisabled 
+                ${isVisualizeDisabled 
                   ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed' 
                   : 'bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transform hover:scale-105 shadow-lg'
                 }
               `}
             >
-              {isLoading ? 'Visualizing...' : '✨ Visualize Paving'}
+              {getButtonText()}
             </button>
-          </div>
         </div>
 
-        <div className="mt-8 md:mt-12 max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto">
            <ResultDisplay 
               isLoading={isLoading} 
               isRefining={isRefining}

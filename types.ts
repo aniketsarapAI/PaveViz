@@ -1,3 +1,4 @@
+
 export interface ImageFile {
   base64: string;
   mimeType: string;
@@ -18,6 +19,8 @@ export interface Product {
 export interface GalleryItem {
   id: string;
   siteImage: ImageFile;
-  resultImage: ImageFile;
+  generatedImage: ImageFile;
   pavingName: string;
+  description: string; // e.g., "Initial visualization with..." or the summarized refinement.
+  isInitial: boolean;
 }

@@ -1,66 +1,162 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import type { GalleryItem } from '../types';
 import jsPDF from 'jspdf';
+import { GalleryDetailModal } from './GalleryDetailModal';
 
 interface GalleryProps {
   gallery: GalleryItem[];
 }
 
 export const Gallery: React.FC<GalleryProps> = ({ gallery }) => {
+  const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
 
   const handleDownloadPdf = () => {
     const doc = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4'
+      orientation: 'p',
+      unit: 'mm',
+      format: 'a4'
     });
 
-    gallery.forEach((item, index) => {
-      if (index > 0) {
-        doc.addPage();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    const contentWidth = pageWidth - (margin * 2);
+    let yPos = 20;
+
+    const groupedBySiteImage = gallery.reduce((acc, item) => {
+      if (!acc[item.siteImage.dataUrl]) {
+        acc[item.siteImage.dataUrl] = {
+          siteImage: item.siteImage,
+          designs: []
+        };
       }
-      doc.setFontSize(18);
-      doc.text('AI Paving Visualization', 105, 20, { align: 'center' });
-      
-      doc.setFontSize(12);
-      doc.text(`Paving Used: ${item.pavingName}`, 105, 30, { align: 'center' });
+      acc[item.siteImage.dataUrl].designs.unshift(item); // unshift to reverse order for chronological report
+      return acc;
+    }, {} as Record<string, { siteImage: GalleryItem['siteImage']; designs: GalleryItem[] }>);
 
-      // A4 page is 210mm wide. Image is 180mm. Margin is (210-180)/2 = 15mm
-      doc.addImage(item.resultImage.dataUrl, item.resultImage.mimeType.split('/')[1].toUpperCase(), 15, 40, 180, 135);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('AI Paving Design Report', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 15;
+
+    Object.values(groupedBySiteImage).forEach((group, groupIndex) => {
+
+      if (groupIndex > 0) {
+        doc.addPage();
+        yPos = 20;
+      }
+      
+      yPos += 5;
+      doc.setDrawColor(200);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 15;
+      
+      const addImage = (imageFile: GalleryItem['siteImage'], title: string, subtitle?: string) => {
+        const titleHeight = subtitle ? 12 : 7;
+        const spacing = 12;
+        const imgHeight = (imageFile.height / imageFile.width) * contentWidth;
+
+        if (yPos + imgHeight + titleHeight + spacing > pageHeight) {
+          doc.addPage();
+          yPos = 20;
+        }
+        
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, margin, yPos);
+        yPos += 6;
+
+        if (subtitle) {
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor(100);
+          doc.text(subtitle, margin, yPos, { maxWidth: contentWidth });
+          const subtitleLines = doc.splitTextToSize(subtitle, contentWidth).length;
+          yPos += (subtitleLines * 4) + 2;
+          doc.setTextColor(0);
+        }
+
+        doc.addImage(imageFile.dataUrl, imageFile.mimeType.split('/')[1].toUpperCase(), margin, yPos, contentWidth, imgHeight);
+        yPos += imgHeight + spacing;
+      };
+      
+      // 1. Add the unique Site Photo for the group
+      addImage(group.siteImage, `Project ${groupIndex + 1}: Original Site Photo`);
+      
+      doc.setDrawColor(220);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 10;
+      
+      // 2. Iterate through each design in the group
+      group.designs.forEach((item, designIndex) => {
+         const subtitle = item.isInitial
+            ? `Paving: ${item.pavingName}`
+            : `Change Applied: "${item.description}"`;
+
+         addImage(item.generatedImage, `Generated Image #${designIndex + 1}`, subtitle);
+         
+         if(designIndex < group.designs.length - 1) {
+            yPos += 5;
+            doc.setDrawColor(240); // Lighter separator for individual images
+            doc.line(margin + 20, yPos, pageWidth - margin - 20, yPos);
+            yPos += 15;
+         }
+      });
     });
 
-    doc.save('paving-visualizations.pdf');
+    doc.save('paving-design-report.pdf');
   };
 
   return (
-    <div className="w-full bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
-          Results Gallery
-        </h2>
-        <button
-          onClick={handleDownloadPdf}
-          className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition-colors"
-        >
-          Download as PDF
-        </button>
+    <>
+      <div className="w-full bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
+            Design History
+          </h2>
+          <button
+            onClick={handleDownloadPdf}
+            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition-colors"
+          >
+            Download Report as PDF
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {gallery.map((item) => {
+            return (
+              <button
+                key={item.id}
+                onClick={() => setSelectedItem(item)}
+                className="bg-slate-50 dark:bg-slate-700/50 rounded-lg overflow-hidden shadow-md group text-left transition-all hover:shadow-xl hover:scale-105"
+              >
+                <div className="w-full h-48 overflow-hidden">
+                  <img
+                    src={item.generatedImage.dataUrl}
+                    alt={item.description}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                  />
+                </div>
+                <div className="p-3">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate" title={item.description}>
+                    {item.description}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Paving: {item.pavingName}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {gallery.map((item) => (
-          <div key={item.id} className="bg-slate-50 dark:bg-slate-700/50 rounded-lg overflow-hidden shadow-md">
-            <img 
-              src={item.resultImage.dataUrl} 
-              alt={`Visualization with ${item.pavingName}`} 
-              className="w-full h-48 object-cover" 
-            />
-            <div className="p-3">
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate" title={item.pavingName}>
-                {item.pavingName}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+
+      {selectedItem && (
+        <GalleryDetailModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
+    </>
   );
 };
