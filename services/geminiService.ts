@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import type { ImageFile } from '../types';
 import { processDataUrlToImageFile } from '../utils/fileUtils';
@@ -10,39 +11,33 @@ if (!API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-const INITIAL_GENERATION_PROMPT_TEMPLATE = (width: number, height: number) => `You are an expert AI photo editor specializing in photorealistic architectural visualization. Your primary goal is to replace the main ground surface in a site photo with a new paving texture.
+const INITIAL_GENERATION_PROMPT_TEMPLATE = (width: number, height: number) => `You are an expert AI photo editor. Follow these instructions with absolute precision.
 
-**CORE TASK: INTELLIGENT SURFACE REPLACEMENT**
+**PRIMARY GOAL:**
+Replace all identifiable ground surfaces (e.g., lawn, existing patio, dirt path, driveway) in the provided SITE PHOTO with the texture from the provided PAVING SWATCH.
 
-1.  **IDENTIFY THE GROUND PLANE:** First, analyze the primary site photo to identify the main, continuous ground surface that is suitable for paving. This might be a lawn, an existing patio, a dirt patch, or a driveway.
-2.  **REPLACE THE ENTIRE PLANE:** Once you have identified this ground plane, you must replace the **ENTIRE** surface with the texture provided in the paving swatch image. The replacement must be complete and cover the whole logical area.
-3.  **RESPECT OBJECTS:** Do not alter or cover objects that are *on top of* the ground plane (e.g., furniture, planters, toys, people). The new paving should appear to be underneath these objects.
-4.  **PRESERVE EVERYTHING ELSE:** Do NOT alter any other part of the image. All other elements (walls, buildings, plants not on the main ground plane, sky, etc.) must remain IDENTICAL to the original photo.
-5.  **SEAMLESS & PHOTOREALISTIC INTEGRATION:** The new paving must perfectly match the original photo's perspective, lighting, shadows, and overall atmosphere. The final result must look like a real photograph.
-6.  **OUTPUT DIMENSIONS:** The output image MUST have the exact dimensions: ${width}x${height} pixels.`;
+**CRITICAL QUALITY REQUIREMENTS:**
+- **Photorealism is Key:** The new paving must perfectly match the original photo's perspective, lighting, shadows, and atmosphere. The result must look like a real photograph, not an artificial rendering.
+- **Respect Objects:** Do not alter or cover objects on top of the ground (e.g., furniture, planters, people, toys). The paving must appear naturally underneath them.
+- **Preserve Everything Else:** Do not alter any other part of the image (e.g., walls, buildings, sky, fences, trees). Your only task is to replace the ground surface.
+- **Output ONE Image:** Generate only one image as the result.
+- **Output Dimensions:** The output image MUST have the exact dimensions: ${width}x${height} pixels.`;
 
-const REFINE_VISUALIZATION_PROMPT = `You are an expert AI photo editor specializing in photorealistic architectural visualization. Your task is to intelligently modify a provided base image according to a user's instructions and supplemental images (mask, paving swatch).
 
-**PRIMARY GOAL: PHOTOREALISM AND CONTEXTUAL AWARENESS**
-The final image must look like a real photograph. All changes must be seamlessly integrated, matching the original photo's perspective, lighting, shadows, and overall atmosphere.
+const REFINE_VISUALIZATION_PROMPT = `You are an expert AI photo editor. Follow these instructions with absolute precision.
 
-**HOW TO INTERPRET THE USER'S MASK:**
-- If a black-and-white mask image is provided, it represents a ROUGH HINT from the user pointing to an area of interest.
-- **DO NOT** simply fill the white area of the mask.
-- Your first step is to IDENTIFY the complete logical surface or object the user is pointing to (e.g., the entire lawn, the entire patio, a specific wall section).
-- Apply the user's requested changes to that **ENTIRE identified surface**, not just the masked pixels.
-- The black areas of the mask MUST remain completely untouched.
+**PRIMARY GOAL:**
+Modify the provided BASE IMAGE according to the user's TEXT INSTRUCTION.
 
-**HOW TO USE THE PAVING SWATCH:**
-- If a paving swatch image is provided, it is the **DEFINITIVE TEXTURE REFERENCE** for any changes related to paving.
-- You MUST use the texture from this swatch to replace or add paving. The swatch is the source of truth for the texture, overriding any conflicting material descriptions in the user's text instruction.
+**CONTEXT & ASSETS:**
+- **BASE IMAGE:** The starting image to be modified. This is your canvas.
+- **TEXT INSTRUCTION:** The user's specific request for a change.
+- **PAVING SWATCH (if provided):** If the instruction involves adding or changing paving, you MUST use this texture.
 
-**EXECUTION HIERARCHY:**
-1.  Analyze the user's text instruction to understand their goal.
-2.  If a mask is present, use it to identify the target surface in the base image. If no mask, infer the target from the user's text.
-3.  If the goal involves paving and a swatch is provided, apply the swatch texture to the target surface.
-4.  Apply the change with perfect photorealism, perspective, and lighting.
-5.  Leave all other parts of the image unchanged.
+**CRITICAL QUALITY REQUIREMENTS:**
+- **Follow Instructions:** Execute the user's TEXT INSTRUCTION intelligently and accurately.
+- **Photorealism is Key:** All changes must be seamlessly integrated, matching the base image's perspective, lighting, shadows, and atmosphere.
+- **Output ONE Image:** Generate only one image as the result.
 
 The user's specific instruction is below.`;
 
@@ -87,15 +82,15 @@ const handleApiError = (error: any): string => {
   return "An unknown error occurred while communicating with the AI. Please check the console for details.";
 };
 
-const processApiResponse = async (response: GenerateContentResponse): Promise<ImageFile | null> => {
+const processSingleImageApiResponse = async (response: GenerateContentResponse): Promise<ImageFile | null> => {
   for (const part of response.candidates?.[0]?.content?.parts || []) {
     if (part.inlineData) {
       const { data, mimeType } = part.inlineData;
       const dataUrl = `data:${mimeType};base64,${data}`;
-      return await processDataUrlToImageFile(dataUrl);
+      return await processDataUrlToImageFile(dataUrl); // Return the first image found
     }
   }
-  return null;
+  return null; // Return null if no image is found
 };
 
 export const generateInitialVisualization = async (
@@ -126,7 +121,7 @@ export const generateInitialVisualization = async (
         responseModalities: [Modality.IMAGE, Modality.TEXT],
       },
     });
-    return await processApiResponse(response);
+    return await processSingleImageApiResponse(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -135,7 +130,6 @@ export const generateInitialVisualization = async (
 export const refineVisualization = async (
   baseImage: ImageFile,
   refinementPrompt: string,
-  maskImage: ImageFile | null,
   pavingImage: ImageFile | null
 ): Promise<ImageFile | null> => {
   try {
@@ -159,15 +153,6 @@ export const refineVisualization = async (
       });
     }
 
-    if (maskImage) {
-      parts.push({
-        inlineData: {
-          mimeType: maskImage.mimeType,
-          data: maskImage.base64,
-        },
-      });
-    }
-
     fullPrompt += `\n\nUser's instruction: "${refinementPrompt}"`;
     parts.unshift({ text: fullPrompt });
 
@@ -178,7 +163,7 @@ export const refineVisualization = async (
         responseModalities: [Modality.IMAGE, Modality.TEXT],
       },
     });
-    return await processApiResponse(response);
+    return await processSingleImageApiResponse(response);
   } catch (error) {
     throw new Error(handleApiError(error));
   }

@@ -21,8 +21,6 @@ const App: React.FC = () => {
   const [isRefining, setIsRefining] = useState<boolean>(false);
   const [isSwatchLoading, setIsSwatchLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [maskImage, setMaskImage] = useState<ImageFile | null>(null);
-  const [isMasking, setIsMasking] = useState<boolean>(false);
   const [advancedPrompt, setAdvancedPrompt] = useState<string>('');
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
 
@@ -30,14 +28,12 @@ const App: React.FC = () => {
     setSiteImage(image);
     setResultImage(null); // Reset result on new image
     setError(null);
-    setMaskImage(null);
   }, []);
 
   const handlePavingSelectionChange = useCallback((selection: PavingSelection) => {
     setPavingSelection(selection);
     setResultImage(null); // Reset result on new selection
     setError(null);
-    setMaskImage(null);
   }, []);
 
   const handleVisualize = async () => {
@@ -50,8 +46,6 @@ const App: React.FC = () => {
     setError(null);
     setResultImage(null);
     setAdvancedPrompt(''); // Reset prompt for new visualizations
-    setMaskImage(null);
-    setIsMasking(false);
 
     try {
       const generatedImage = await generateInitialVisualization(siteImage, pavingSelection.image);
@@ -100,7 +94,6 @@ const App: React.FC = () => {
       const refinedImage = await refineVisualization(
         resultImage, 
         advancedPrompt, 
-        maskImage,
         pavingSelection.image // Provide paving context
       );
       if (refinedImage) {
@@ -120,7 +113,6 @@ const App: React.FC = () => {
         setGallery(prevGallery => [newGalleryItem, ...prevGallery]);
         
         setAdvancedPrompt(''); // Clear prompt after successful refinement
-        setMaskImage(null); // Clear mask after use
       } else {
         setError("The AI could not refine the image. Please try adjusting your instructions.");
       }
@@ -132,7 +124,7 @@ const App: React.FC = () => {
     }
   };
   
-  const isVisualizeDisabled = !siteImage || !pavingSelection.image || isLoading || isRefining || isSwatchLoading || isMasking;
+  const isVisualizeDisabled = !siteImage || !pavingSelection.image || isLoading || isRefining || isSwatchLoading;
 
   const getButtonText = () => {
     if (isLoading) return 'Visualizing...';
@@ -184,10 +176,6 @@ const App: React.FC = () => {
               resultImage={resultImage}
               advancedPrompt={advancedPrompt}
               onAdvancedPromptChange={setAdvancedPrompt}
-              isMasking={isMasking}
-              onIsMaskingChange={setIsMasking}
-              maskImage={maskImage}
-              onMaskChange={setMaskImage}
               onRefine={handleRefine}
             />
         </div>

@@ -5,7 +5,6 @@ import { ReactCompareSlider, ReactCompareSliderImage } from 'react-compare-slide
 import { AdvancedPromptInput } from './AdvancedPromptInput';
 import { LoadingIndicator } from './LoadingIndicator';
 import { BrandLoader } from './BrandLoader';
-import { ImageMasker } from './ImageMasker';
 
 interface ResultDisplayProps {
   isLoading: boolean;
@@ -16,10 +15,6 @@ interface ResultDisplayProps {
   advancedPrompt: string;
   onAdvancedPromptChange: (value: string) => void;
   onRefine: () => void;
-  isMasking: boolean;
-  onIsMaskingChange: (isMasking: boolean) => void;
-  maskImage: ImageFile | null;
-  onMaskChange: (mask: ImageFile | null) => void;
 }
 
 const REFINING_MESSAGES = [
@@ -38,10 +33,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   resultImage,
   advancedPrompt,
   onAdvancedPromptChange,
-  isMasking,
-  onIsMaskingChange,
-  maskImage,
-  onMaskChange,
   onRefine,
 }) => {
   const [refiningMessageIndex, setRefiningMessageIndex] = useState(0);
@@ -96,18 +87,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
             className="p-2 relative w-full max-w-full mx-auto"
             style={{ aspectRatio: `${siteImage.width} / ${siteImage.height}` }}
           >
-            {isMasking && resultImage ? (
-               <ImageMasker
-                  imageToMask={resultImage}
-                  onSaveMask={(maskFile) => {
-                    onMaskChange(maskFile);
-                    onIsMaskingChange(false);
-                  }}
-                  onCancel={() => {
-                    onIsMaskingChange(false);
-                  }}
-                />
-            ) : (
               <>
                 {/* --- Refining Overlay --- */}
                 {isRefining && (
@@ -132,7 +111,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                   className="w-full h-full rounded-xl"
                 />
               </>
-            )}
           </div>
           <div className="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50">
              {error && (
@@ -144,27 +122,13 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
               value={advancedPrompt}
               onChange={onAdvancedPromptChange}
             />
-            {maskImage && !isMasking && (
-              <div className="mt-3 flex items-center justify-center gap-2 p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-sm">
-                <img src={maskImage.dataUrl} alt="Mask preview" className="w-8 h-8 rounded border border-indigo-200 dark:border-indigo-700 bg-black" />
-                <p className="font-medium text-indigo-700 dark:text-indigo-300">Mask applied. Ready to refine.</p>
-                <button onClick={() => onMaskChange(null)} className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">&times; clear</button>
-              </div>
-            )}
             <div className="mt-4 flex flex-wrap justify-center items-center gap-3">
                <button
-                 onClick={() => onIsMaskingChange(true)}
-                 disabled={isRefining || isMasking}
-                 className="px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-full transition-all duration-300 ease-in-out hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
-               >
-                 🖌️ Edit Area with Mask
-               </button>
-               <button
                 onClick={onRefine}
-                disabled={isRefining || isMasking}
+                disabled={isRefining}
                 className={`
                   px-6 py-3 text-md font-bold text-white rounded-full transition-all duration-300 ease-in-out
-                  ${(isRefining || isMasking)
+                  ${isRefining
                     ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed' 
                     : 'bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transform hover:scale-105'
                   }
