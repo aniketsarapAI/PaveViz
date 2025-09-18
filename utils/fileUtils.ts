@@ -1,4 +1,3 @@
-
 import type { ImageFile } from '../types';
 
 const getImageDimensions = (dataUrl: string): Promise<{ width: number; height: number }> => {
@@ -7,7 +6,7 @@ const getImageDimensions = (dataUrl: string): Promise<{ width: number; height: n
     img.onload = () => {
       resolve({ width: img.naturalWidth, height: img.naturalHeight });
     };
-    img.onerror = (error) => reject(error);
+    img.onerror = () => reject(new Error('Failed to load image for dimension calculation.'));
     img.src = dataUrl;
   });
 };

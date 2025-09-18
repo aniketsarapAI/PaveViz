@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import type { ImageFile } from '../types';
 import { ReactCompareSlider, ReactCompareSliderImage } from 'react-compare-slider';
@@ -9,12 +8,14 @@ import { BrandLoader } from './BrandLoader';
 interface ResultDisplayProps {
   isLoading: boolean;
   isRefining: boolean;
+  isSmartDesigning: boolean;
   error: string | null;
   siteImage: ImageFile | null;
   resultImage: ImageFile | null;
   advancedPrompt: string;
   onAdvancedPromptChange: (value: string) => void;
   onRefine: () => void;
+  onSmartDesign: () => void;
 }
 
 const REFINING_MESSAGES = [
@@ -28,12 +29,14 @@ const REFINING_MESSAGES = [
 export const ResultDisplay: React.FC<ResultDisplayProps> = ({ 
   isLoading, 
   isRefining,
+  isSmartDesigning,
   error, 
   siteImage, 
   resultImage,
   advancedPrompt,
   onAdvancedPromptChange,
   onRefine,
+  onSmartDesign,
 }) => {
   const [refiningMessageIndex, setRefiningMessageIndex] = useState(0);
 
@@ -79,6 +82,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   }
 
   if (resultImage && siteImage) {
+    const isAnyLoading = isLoading || isRefining || isSmartDesigning;
     return (
       <>
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden">
@@ -112,30 +116,51 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                 />
               </>
           </div>
-          <div className="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50">
+          <div className="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50 divide-y divide-slate-200 dark:divide-slate-700">
              {error && (
-              <div className="text-center p-4 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="text-center p-4 mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
              )}
-            <AdvancedPromptInput 
-              value={advancedPrompt}
-              onChange={onAdvancedPromptChange}
-            />
-            <div className="mt-4 flex flex-wrap justify-center items-center gap-3">
-               <button
-                onClick={onRefine}
-                disabled={isRefining}
-                className={`
-                  px-6 py-3 text-md font-bold text-white rounded-full transition-all duration-300 ease-in-out
-                  ${isRefining
-                    ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed' 
-                    : 'bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transform hover:scale-105'
-                  }
-                `}
-              >
-                {isRefining ? 'Refining...' : '♻️ Refine Result'}
-              </button>
+            <div className="pb-6">
+              <AdvancedPromptInput 
+                value={advancedPrompt}
+                onChange={onAdvancedPromptChange}
+              />
+              <div className="mt-4 flex flex-wrap justify-center items-center gap-3">
+                 <button
+                  onClick={onRefine}
+                  disabled={isAnyLoading}
+                  className={`
+                    px-6 py-3 text-md font-bold text-white rounded-full transition-all duration-300 ease-in-out
+                    ${isAnyLoading
+                      ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed' 
+                      : 'bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transform hover:scale-105'
+                    }
+                  `}
+                >
+                  {isRefining ? 'Refining...' : '♻️ Refine Result'}
+                </button>
+              </div>
+            </div>
+            <div className="pt-6 text-center">
+                <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Want More Ideas?</h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4 max-w-md mx-auto">
+                    Let AI explore the possibilities for you, sit back and relax.
+                </p>
+                <button
+                    onClick={onSmartDesign}
+                    disabled={isAnyLoading}
+                    className={`
+                      px-6 py-3 text-md font-bold text-white rounded-full transition-all duration-300 ease-in-out
+                      ${isAnyLoading
+                        ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed' 
+                        : 'bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 transform hover:scale-105'
+                      }
+                    `}
+                >
+                    {isSmartDesigning ? 'Generating...' : '🚀 Generate Smart Designs'}
+                </button>
             </div>
           </div>
         </div>

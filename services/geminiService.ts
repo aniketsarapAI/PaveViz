@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import type { ImageFile } from '../types';
 import { processDataUrlToImageFile } from '../utils/fileUtils';
@@ -11,17 +10,31 @@ if (!API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-const INITIAL_GENERATION_PROMPT_TEMPLATE = (width: number, height: number) => `You are an expert AI photo editor. Follow these instructions with absolute precision.
+const INITIAL_GENERATION_PROMPT_TEMPLATE = (width: number, height: number) => `You are an expert AI specializing in photorealistic paving visualization. Your task is to replace only the existing man-made paving in the SITE PHOTO with the new PAVING SWATCH.
 
-**PRIMARY GOAL:**
-Replace all identifiable ground surfaces (e.g., lawn, existing patio, dirt path, driveway) in the provided SITE PHOTO with the texture from the provided PAVING SWATCH.
+**MANDATORY TASK: FOCUSED PAVING REPLACEMENT**
 
-**CRITICAL QUALITY REQUIREMENTS:**
-- **Photorealism is Key:** The new paving must perfectly match the original photo's perspective, lighting, shadows, and atmosphere. The result must look like a real photograph, not an artificial rendering.
-- **Respect Objects:** Do not alter or cover objects on top of the ground (e.g., furniture, planters, people, toys). The paving must appear naturally underneath them.
-- **Preserve Everything Else:** Do not alter any other part of the image (e.g., walls, buildings, sky, fences, trees). Your only task is to replace the ground surface.
-- **Output ONE Image:** Generate only one image as the result.
-- **Output Dimensions:** The output image MUST have the exact dimensions: ${width}x${height} pixels.`;
+1.  **IDENTIFY MAN-MADE SURFACES:** Look at the SITE PHOTO and identify ONLY existing, hard-paved, ground-level surfaces. This includes areas with concrete, existing pavers (stone, clay, porcelain), tiles, setts, and asphalt.
+2.  **EXCLUDE NATURAL SURFACES:** You MUST ignore and preserve all natural ground surfaces. DO NOT replace grass, soil, dirt, decorative gravel, pebbles, wood chips, or flower beds.
+3.  **COMBINE & REPLACE:** Mentally combine all the identified *man-made paved areas* into a single "replacement zone". Your ONLY task is to completely replace this entire "replacement zone" with the texture from the PAVING SWATCH.
+
+**CRITICAL RULES:**
+- **ONLY REPLACE PAVING:** Only man-made paved surfaces should be changed. If a paved patio is next to a lawn, ONLY the patio should be replaced with the new swatch. The lawn MUST remain untouched.
+- **PRESERVE EVERYTHING ELSE:** Do NOT alter walls, steps, furniture, plants, buildings, or any vertical surfaces. These elements should remain untouched, with the new paving appearing naturally underneath or around them.
+- **PHOTOREALISM IS ESSENTIAL:** The result must be hyper-realistic. The new paving must perfectly match the original photo's perspective, lighting, and shadows.
+- **OUTPUT:** Generate ONLY ONE image with the exact dimensions: ${width}x${height} pixels.`;
+
+
+const SMART_DESIGN_PROMPT_TEMPLATE = (width: number, height: number) => `You are an expert AI photo editor. Your task is to identify distinct paveable ground surfaces in the SITE PHOTO and generate alternative designs using the PAVING SWATCH.
+
+1.  **Analyze the SITE PHOTO:** Identify up to 3 distinct, separate ground-level surfaces that can be paved (e.g., a lawn, a separate gravel path, an old concrete patio). Do NOT count different parts of the same continuous surface.
+2.  **Generate Images:** For EACH distinct surface you identified, generate one image where ONLY that single surface is replaced with the PAVING SWATCH. Leave all other surfaces as they were in the original SITE PHOTO.
+3.  **Output Rules:**
+    *   If you find multiple distinct surfaces, return one image for each.
+    *   If you find only one continuous surface, DO NOT generate any image.
+    *   Each output image MUST have the exact dimensions: ${width}x${height} pixels.
+    *   Maintain absolute photorealism, matching lighting, shadows, and perspective.
+    *   Do not modify anything other than the single target surface for each respective image.`;
 
 
 const REFINE_VISUALIZATION_PROMPT = `You are an expert AI photo editor. Follow these instructions with absolute precision.
@@ -93,6 +106,20 @@ const processSingleImageApiResponse = async (response: GenerateContentResponse):
   return null; // Return null if no image is found
 };
 
+const processMultipleImageApiResponse = async (response: GenerateContentResponse): Promise<ImageFile[]> => {
+  const images: ImageFile[] = [];
+  for (const part of response.candidates?.[0]?.content?.parts || []) {
+    if (part.inlineData) {
+      const { data, mimeType } = part.inlineData;
+      const dataUrl = `data:${mimeType};base64,${data}`;
+      const imageFile = await processDataUrlToImageFile(dataUrl);
+      images.push(imageFile);
+    }
+  }
+  return images;
+};
+
+
 export const generateInitialVisualization = async (
   siteImage: ImageFile,
   pavingImage: ImageFile
@@ -103,12 +130,14 @@ export const generateInitialVisualization = async (
       contents: {
         parts: [
           { text: INITIAL_GENERATION_PROMPT_TEMPLATE(siteImage.width, siteImage.height) },
+          { text: "SITE PHOTO:" },
           {
             inlineData: {
               mimeType: siteImage.mimeType,
               data: siteImage.base64,
             },
           },
+          { text: "PAVING SWATCH:" },
           {
             inlineData: {
               mimeType: pavingImage.mimeType,
@@ -127,6 +156,42 @@ export const generateInitialVisualization = async (
   }
 };
 
+export const generateSmartDesigns = async (
+  siteImage: ImageFile,
+  pavingImage: ImageFile
+): Promise<ImageFile[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image-preview',
+      contents: {
+        parts: [
+          { text: SMART_DESIGN_PROMPT_TEMPLATE(siteImage.width, siteImage.height) },
+          { text: "SITE PHOTO:" },
+          {
+            inlineData: {
+              mimeType: siteImage.mimeType,
+              data: siteImage.base64,
+            },
+          },
+          { text: "PAVING SWATCH:" },
+          {
+            inlineData: {
+              mimeType: pavingImage.mimeType,
+              data: pavingImage.base64,
+            },
+          },
+        ],
+      },
+      config: {
+        responseModalities: [Modality.IMAGE, Modality.TEXT],
+      },
+    });
+    return await processMultipleImageApiResponse(response);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
 export const refineVisualization = async (
   baseImage: ImageFile,
   refinementPrompt: string,
@@ -136,7 +201,8 @@ export const refineVisualization = async (
     let fullPrompt = REFINE_VISUALIZATION_PROMPT;
     
     const parts: any[] = [
-      { // The primary image to be edited
+      { text: "BASE IMAGE:" },
+      {
         inlineData: {
           mimeType: baseImage.mimeType,
           data: baseImage.base64,
@@ -145,6 +211,7 @@ export const refineVisualization = async (
     ];
     
     if (pavingImage) {
+      parts.push({ text: "PAVING SWATCH:" });
       parts.push({
         inlineData: {
           mimeType: pavingImage.mimeType,

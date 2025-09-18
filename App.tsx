@@ -1,11 +1,10 @@
-
 import React, { useState, useCallback } from 'react';
 import { Header } from './components/Header';
 import { ImageUploader } from './components/ImageUploader';
 import { PavingSelector } from './components/PavingSelector';
 import { ResultDisplay } from './components/ResultDisplay';
 import { Gallery } from './components/Gallery';
-import { generateInitialVisualization, refineVisualization, summarizeRefinement } from './services/geminiService';
+import { generateInitialVisualization, refineVisualization, summarizeRefinement, generateSmartDesigns } from './services/geminiService';
 import type { ImageFile, GalleryItem } from './types';
 
 interface PavingSelection {
@@ -19,6 +18,7 @@ const App: React.FC = () => {
   const [resultImage, setResultImage] = useState<ImageFile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefining, setIsRefining] = useState<boolean>(false);
+  const [isSmartDesigning, setIsSmartDesigning] = useState<boolean>(false);
   const [isSwatchLoading, setIsSwatchLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [advancedPrompt, setAdvancedPrompt] = useState<string>('');
@@ -123,8 +123,40 @@ const App: React.FC = () => {
       setIsRefining(false);
     }
   };
+
+  const handleSmartDesign = async () => {
+    if (!siteImage || !pavingSelection.image) {
+      setError("Cannot create smart designs without an original photo and paving swatch.");
+      return;
+    }
+
+    setIsSmartDesigning(true);
+    setError(null);
+
+    try {
+      const designs = await generateSmartDesigns(siteImage, pavingSelection.image);
+      if (designs.length > 0) {
+        const newGalleryItems: GalleryItem[] = designs.map((design, index) => ({
+          id: `${Date.now()}-smart-${index}`,
+          siteImage,
+          generatedImage: design,
+          pavingName: pavingSelection.name || 'Unknown Paving',
+          description: `Smart Design: Option ${index + 1}`,
+          isInitial: false,
+        }));
+        setGallery(prevGallery => [...newGalleryItems, ...prevGallery]);
+      } else {
+        setError("The AI could not find distinct areas to create smart designs. This usually happens when there is only one continuous surface to pave.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "An unknown error occurred during smart design generation.");
+    } finally {
+      setIsSmartDesigning(false);
+    }
+  };
   
-  const isVisualizeDisabled = !siteImage || !pavingSelection.image || isLoading || isRefining || isSwatchLoading;
+  const isVisualizeDisabled = !siteImage || !pavingSelection.image || isLoading || isRefining || isSwatchLoading || isSmartDesigning;
 
   const getButtonText = () => {
     if (isLoading) return 'Visualizing...';
@@ -171,12 +203,14 @@ const App: React.FC = () => {
            <ResultDisplay 
               isLoading={isLoading} 
               isRefining={isRefining}
+              isSmartDesigning={isSmartDesigning}
               error={error}
               siteImage={siteImage}
               resultImage={resultImage}
               advancedPrompt={advancedPrompt}
               onAdvancedPromptChange={setAdvancedPrompt}
               onRefine={handleRefine}
+              onSmartDesign={handleSmartDesign}
             />
         </div>
         
