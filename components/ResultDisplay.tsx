@@ -5,6 +5,7 @@ import { ReactCompareSlider, ReactCompareSliderImage } from 'react-compare-slide
 import { AdvancedPromptInput } from './AdvancedPromptInput';
 import { LoadingIndicator } from './LoadingIndicator';
 import { BrandLoader } from './BrandLoader';
+import { ImageMasker } from './ImageMasker';
 
 interface ResultDisplayProps {
   isLoading: boolean;
@@ -15,6 +16,10 @@ interface ResultDisplayProps {
   advancedPrompt: string;
   onAdvancedPromptChange: (value: string) => void;
   onRefine: () => void;
+  isMasking: boolean;
+  onIsMaskingChange: (isMasking: boolean) => void;
+  maskImage: ImageFile | null;
+  onMaskChange: (mask: ImageFile | null) => void;
 }
 
 const REFINING_MESSAGES = [
@@ -33,6 +38,10 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   resultImage,
   advancedPrompt,
   onAdvancedPromptChange,
+  isMasking,
+  onIsMaskingChange,
+  maskImage,
+  onMaskChange,
   onRefine,
 }) => {
   const [refiningMessageIndex, setRefiningMessageIndex] = useState(0);
@@ -87,28 +96,43 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
             className="p-2 relative w-full max-w-full mx-auto"
             style={{ aspectRatio: `${siteImage.width} / ${siteImage.height}` }}
           >
-            {/* --- Refining Overlay --- */}
-            {isRefining && (
-              <div className="absolute inset-2 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-xl animate-fade-in-fast">
-                <BrandLoader className="w-12 h-12" />
-                <p className="mt-4 font-semibold text-white text-center transition-opacity duration-500 px-4" key={refiningMessageIndex}>
-                  {REFINING_MESSAGES[refiningMessageIndex]}
-                </p>
-              </div>
-            )}
-            
-            <ReactCompareSlider
-              itemOne={<ReactCompareSliderImage src={siteImage.dataUrl} alt="Before" />}
-              itemTwo={
-                 <ReactCompareSliderImage 
-                  key={resultImage.dataUrl} // Re-mounts on change to trigger animation
-                  src={resultImage.dataUrl} 
-                  alt="After" 
-                  style={{ animation: 'fadeIn 0.5s ease-in-out' }}
+            {isMasking && resultImage ? (
+               <ImageMasker
+                  imageToMask={resultImage}
+                  onSaveMask={(maskFile) => {
+                    onMaskChange(maskFile);
+                    onIsMaskingChange(false);
+                  }}
+                  onCancel={() => {
+                    onIsMaskingChange(false);
+                  }}
                 />
-              }
-              className="w-full h-full rounded-xl"
-            />
+            ) : (
+              <>
+                {/* --- Refining Overlay --- */}
+                {isRefining && (
+                  <div className="absolute inset-2 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-xl animate-fade-in-fast">
+                    <BrandLoader className="w-12 h-12" />
+                    <p className="mt-4 font-semibold text-white text-center transition-opacity duration-500 px-4" key={refiningMessageIndex}>
+                      {REFINING_MESSAGES[refiningMessageIndex]}
+                    </p>
+                  </div>
+                )}
+                
+                <ReactCompareSlider
+                  itemOne={<ReactCompareSliderImage src={siteImage.dataUrl} alt="Before" />}
+                  itemTwo={
+                    <ReactCompareSliderImage 
+                      key={resultImage.dataUrl} // Re-mounts on change to trigger animation
+                      src={resultImage.dataUrl} 
+                      alt="After" 
+                      style={{ animation: 'fadeIn 0.5s ease-in-out' }}
+                    />
+                  }
+                  className="w-full h-full rounded-xl"
+                />
+              </>
+            )}
           </div>
           <div className="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50">
              {error && (
@@ -120,13 +144,27 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
               value={advancedPrompt}
               onChange={onAdvancedPromptChange}
             />
-            <div className="mt-4 text-center">
+            {maskImage && !isMasking && (
+              <div className="mt-3 flex items-center justify-center gap-2 p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-sm">
+                <img src={maskImage.dataUrl} alt="Mask preview" className="w-8 h-8 rounded border border-indigo-200 dark:border-indigo-700 bg-black" />
+                <p className="font-medium text-indigo-700 dark:text-indigo-300">Mask applied. Ready to refine.</p>
+                <button onClick={() => onMaskChange(null)} className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">&times; clear</button>
+              </div>
+            )}
+            <div className="mt-4 flex flex-wrap justify-center items-center gap-3">
+               <button
+                 onClick={() => onIsMaskingChange(true)}
+                 disabled={isRefining || isMasking}
+                 className="px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-full transition-all duration-300 ease-in-out hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+               >
+                 🖌️ Edit Area with Mask
+               </button>
                <button
                 onClick={onRefine}
-                disabled={isRefining}
+                disabled={isRefining || isMasking}
                 className={`
                   px-6 py-3 text-md font-bold text-white rounded-full transition-all duration-300 ease-in-out
-                  ${isRefining 
+                  ${(isRefining || isMasking)
                     ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed' 
                     : 'bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transform hover:scale-105'
                   }
@@ -157,7 +195,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   // Initial placeholder state
   return (
     <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-xl flex flex-col items-center justify-center min-h-[300px]">
-        <svg className="w-16 h-16 text-slate-300 dark:text-slate-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <svg className="w-16 h-16 text-slate-300 dark:text-slate-600" xmlns="http://www.w.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
         </svg>
         <h3 className="mt-4 text-xl font-semibold text-slate-700 dark:text-slate-300">Your Visualization Will Appear Here</h3>
