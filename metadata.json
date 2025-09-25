@@ -1,5 +1,5 @@
 {
-  "name": "PaveViz of LSP",
-  "description": "LSP",
+  "name": "PaveViz",
+  "description": "An AI-powered tool to visualize new paving in your garden or patio. Upload a photo of your space and a paving swatch to see a realistic preview of the final result.",
   "requestFramePermissions": []
 }

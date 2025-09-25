@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import type { GalleryItem } from '../types';
 import jsPDF from 'jspdf';
@@ -7,6 +6,12 @@ import { GalleryDetailModal } from './GalleryDetailModal';
 interface GalleryProps {
   gallery: GalleryItem[];
 }
+
+// Fix: Define a type for the grouped designs to help TypeScript's inference.
+type DesignGroup = {
+  siteImage: GalleryItem['siteImage'];
+  designs: GalleryItem[];
+};
 
 export const Gallery: React.FC<GalleryProps> = ({ gallery }) => {
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
@@ -24,7 +29,10 @@ export const Gallery: React.FC<GalleryProps> = ({ gallery }) => {
     const contentWidth = pageWidth - (margin * 2);
     let yPos = 20;
 
-    const groupedBySiteImage = gallery.reduce((acc, item) => {
+    // Fix: Explicitly type the accumulator ('acc') in the reduce function.
+    // This resolves an issue where TypeScript could not infer the type correctly,
+    // causing the 'group' variable below to be of type 'unknown'.
+    const groupedBySiteImage = gallery.reduce((acc: Record<string, DesignGroup>, item) => {
       if (!acc[item.siteImage.dataUrl]) {
         acc[item.siteImage.dataUrl] = {
           siteImage: item.siteImage,
@@ -33,7 +41,7 @@ export const Gallery: React.FC<GalleryProps> = ({ gallery }) => {
       }
       acc[item.siteImage.dataUrl].designs.unshift(item); // unshift to reverse order for chronological report
       return acc;
-    }, {} as Record<string, { siteImage: GalleryItem['siteImage']; designs: GalleryItem[] }>);
+    }, {});
 
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
