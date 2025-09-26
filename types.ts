@@ -24,3 +24,7 @@ export interface GalleryItem {
   description: string; // e.g., "Initial visualization with..." or the summarized refinement.
   isInitial: boolean;
 }
+
+export type GenerationResult =
+  | { success: true; image: ImageFile }
+  | { success: false; reason: string };

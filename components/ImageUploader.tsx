@@ -1,6 +1,5 @@
-
 import React, { useState, useCallback } from 'react';
-import { fileToBase64 } from '../utils/fileUtils';
+import { getImageDimensions } from '../utils/fileUtils';
 import { PhotoIcon } from './icons/PhotoIcon';
 import type { ImageFile } from '../types';
 
@@ -16,16 +15,40 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ id, label, descrip
 
   const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      try {
-        const imageFile = await fileToBase64(file);
-        setPreview(imageFile.dataUrl);
-        onImageChange(imageFile);
-      } catch (error) {
-        console.error("Error converting file to base64:", error);
-        setPreview(null);
-        onImageChange(null);
-      }
+    if (!file) {
+      setPreview(null);
+      onImageChange(null);
+      return;
+    }
+
+    try {
+      // 1. Read the file into a data URL format.
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+      });
+
+      // 2. Load the image in the browser to get its natural dimensions.
+      const { width, height } = await getImageDimensions(dataUrl);
+
+      // 3. Construct the full ImageFile object.
+      const imageFile: ImageFile = {
+        base64: dataUrl.split(',')[1],
+        mimeType: file.type,
+        dataUrl,
+        width,
+        height,
+      };
+
+      setPreview(imageFile.dataUrl);
+      onImageChange(imageFile);
+
+    } catch (error) {
+      console.error("Error processing image file:", error);
+      setPreview(null);
+      onImageChange(null);
     }
   }, [onImageChange]);
 

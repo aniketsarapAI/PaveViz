@@ -48,20 +48,24 @@ const App: React.FC = () => {
     setAdvancedPrompt(''); // Reset prompt for new visualizations
 
     try {
-      const generatedImage = await generateInitialVisualization(siteImage, pavingSelection.image);
-      if (generatedImage) {
-        setResultImage(generatedImage);
+      const result = await generateInitialVisualization(siteImage, pavingSelection.image);
+      
+      // FIX: Swapped the conditional to check for the failure case first.
+      // This helps TypeScript correctly narrow the discriminated union type for `result`
+      // and allows safe access to the `reason` property on failure.
+      if (!result.success) {
+        setError(result.reason);
+      } else {
+        setResultImage(result.image);
         const newGalleryItem: GalleryItem = {
           id: Date.now().toString(),
           siteImage,
-          generatedImage,
+          generatedImage: result.image,
           pavingName: pavingSelection.name || 'Unknown Paving',
           description: `Initial visualization with ${pavingSelection.name || 'Unknown Paving'}`,
           isInitial: true,
         };
         setGallery(prevGallery => [newGalleryItem, ...prevGallery]);
-      } else {
-        setError("The AI could not generate an image. Please try different images.");
       }
     } catch (err) {
       console.error(err);
@@ -91,16 +95,22 @@ const App: React.FC = () => {
     setError(null);
 
     try {
-      const refinedImage = await refineVisualization(resultImage, advancedPrompt);
-      if (refinedImage) {
-        setResultImage(refinedImage);
+      const result = await refineVisualization(resultImage, advancedPrompt);
+      
+      // FIX: Swapped the conditional to check for the failure case first.
+      // This helps TypeScript correctly narrow the discriminated union type for `result`
+      // and allows safe access to the `reason` property on failure.
+      if (!result.success) {
+        setError(result.reason);
+      } else {
+        setResultImage(result.image);
         
         const summary = await summarizeRefinement(advancedPrompt);
 
         const newGalleryItem: GalleryItem = {
           id: Date.now().toString(),
           siteImage: latestGalleryItem.siteImage, // Persist the original site image
-          generatedImage: refinedImage,
+          generatedImage: result.image,
           pavingName: latestGalleryItem.pavingName, // Persist the original paving name
           description: summary,
           isInitial: false,
@@ -109,9 +119,8 @@ const App: React.FC = () => {
         setGallery(prevGallery => [newGalleryItem, ...prevGallery]);
         
         setAdvancedPrompt(''); // Clear prompt after successful refinement
-      } else {
-        setError("The AI could not refine the image. Please try adjusting your instructions.");
       }
+      
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "An unknown error occurred during refinement.");
