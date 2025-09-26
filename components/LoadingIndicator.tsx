@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrandLoader } from './BrandLoader';
+import { MultiStepLoaderAnimation } from './MultiStepLoaderAnimation';
 import type { ImageFile } from '../types';
 
 interface LoadingIndicatorProps {
@@ -27,41 +27,31 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ siteImage, m
   }, [currentMessageIndex, messages.length]);
 
   return (
-    <>
-      <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg w-full">
-        <div 
-          className="relative w-full bg-slate-200 dark:bg-slate-700/50 rounded-xl overflow-hidden shimmer-bg"
-          style={{ 
-            aspectRatio: siteImage ? `${siteImage.width} / ${siteImage.height}` : '16 / 9',
-            minHeight: '200px'
-          }}
-        >
-          <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-4">
-            <BrandLoader />
-            <p className="text-slate-600 dark:text-slate-300 mt-4 font-semibold transition-opacity duration-500" key={currentMessageIndex}>
-              {messages[currentMessageIndex]}
-            </p>
-          </div>
+    <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg w-full">
+      <div 
+        className="relative w-full bg-slate-200 dark:bg-slate-700/50 rounded-xl overflow-hidden"
+        style={{ 
+          aspectRatio: siteImage ? `${siteImage.width} / ${siteImage.height}` : '16 / 9',
+          minHeight: '200px'
+        }}
+      >
+        {/* Blurred background */}
+        {siteImage && (
+          <img 
+            src={siteImage.dataUrl} 
+            alt="Visualization background" 
+            className="absolute inset-0 w-full h-full object-cover blur-md scale-105" 
+          />
+        )}
+
+        {/* Overlay and content */}
+        <div className="absolute inset-0 bg-black/40 flex flex-col justify-center items-center text-center p-4">
+          <MultiStepLoaderAnimation step={currentMessageIndex} />
+          <p className="text-white mt-4 font-semibold transition-opacity duration-500" key={currentMessageIndex}>
+            {messages[currentMessageIndex]}
+          </p>
         </div>
       </div>
-      <style>{`
-        @keyframes shimmer {
-          0% { background-position: -1000px 0; }
-          100% { background-position: 1000px 0; }
-        }
-        .shimmer-bg {
-          background-color: #e2e8f0;
-          background-image: linear-gradient(to right, #e2e8f0 0%, #f1f5f9 20%, #e2e8f0 40%, #e2e8f0 100%);
-          background-repeat: no-repeat;
-          background-size: 2000px 100%;
-          display: inline-block;
-          animation: shimmer 3s infinite linear;
-        }
-        .dark .shimmer-bg {
-          background-color: #334155;
-          background-image: linear-gradient(to right, #334155 0%, #475569 20%, #334155 40%, #334155 100%);
-        }
-      `}</style>
-    </>
+    </div>
   );
 };

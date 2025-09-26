@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback } from 'react';
 import { Header } from './components/Header';
 import { ImageUploader } from './components/ImageUploader';
@@ -23,6 +24,9 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [advancedPrompt, setAdvancedPrompt] = useState<string>('');
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [potentialGalleryItem, setPotentialGalleryItem] = useState<Omit<GalleryItem, 'id'> | null>(null);
+  const [isCurrentResultSaved, setIsCurrentResultSaved] = useState<boolean>(false);
+
 
   const handleSiteImageChange = useCallback((image: ImageFile | null) => {
     setSiteImage(image);
@@ -37,7 +41,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleVisualize = async () => {
-    if (!siteImage || !pavingSelection.image) {
+    if (!siteImage || !pavingSelection.image || !pavingSelection.name) {
       setError("Please upload a site photo and select a paving swatch.");
       return;
     }
@@ -50,22 +54,19 @@ const App: React.FC = () => {
     try {
       const result = await generateInitialVisualization(siteImage, pavingSelection.image);
       
-      // FIX: Swapped the conditional to check for the failure case first.
-      // This helps TypeScript correctly narrow the discriminated union type for `result`
-      // and allows safe access to the `reason` property on failure.
-      if (!result.success) {
+      if (result.success === false) {
         setError(result.reason);
       } else {
         setResultImage(result.image);
-        const newGalleryItem: GalleryItem = {
-          id: Date.now().toString(),
+        const itemToSave: Omit<GalleryItem, 'id'> = {
           siteImage,
           generatedImage: result.image,
-          pavingName: pavingSelection.name || 'Unknown Paving',
-          description: `Initial visualization with ${pavingSelection.name || 'Unknown Paving'}`,
+          pavingName: pavingSelection.name,
+          description: `Initial visualization with ${pavingSelection.name}`,
           isInitial: true,
         };
-        setGallery(prevGallery => [newGalleryItem, ...prevGallery]);
+        setPotentialGalleryItem(itemToSave);
+        setIsCurrentResultSaved(false); // New image is not saved yet
       }
     } catch (err) {
       console.error(err);
@@ -76,8 +77,8 @@ const App: React.FC = () => {
   };
 
   const handleRefine = async () => {
-    if (!resultImage) {
-      setError("Cannot refine without an initial result. Please generate an image first.");
+    if (!resultImage || !siteImage || !pavingSelection.image || !pavingSelection.name) {
+      setError("Cannot refine without an initial result, site image, and paving selection.");
       return;
     }
      if (!advancedPrompt.trim()) {
@@ -85,38 +86,29 @@ const App: React.FC = () => {
       return;
     }
 
-    const latestGalleryItem = gallery[0];
-    if (!latestGalleryItem) {
-      setError("Cannot refine, no design history found.");
-      return;
-    }
-
     setIsRefining(true);
     setError(null);
 
     try {
-      const result = await refineVisualization(resultImage, advancedPrompt);
+      const result = await refineVisualization(siteImage, pavingSelection.image, advancedPrompt);
       
-      // FIX: Swapped the conditional to check for the failure case first.
-      // This helps TypeScript correctly narrow the discriminated union type for `result`
-      // and allows safe access to the `reason` property on failure.
-      if (!result.success) {
+      if (result.success === false) {
         setError(result.reason);
       } else {
         setResultImage(result.image);
         
         const summary = await summarizeRefinement(advancedPrompt);
 
-        const newGalleryItem: GalleryItem = {
-          id: Date.now().toString(),
-          siteImage: latestGalleryItem.siteImage, // Persist the original site image
+        const itemToSave: Omit<GalleryItem, 'id'> = {
+          siteImage: siteImage, 
           generatedImage: result.image,
-          pavingName: latestGalleryItem.pavingName, // Persist the original paving name
+          pavingName: pavingSelection.name, 
           description: summary,
           isInitial: false,
         };
         
-        setGallery(prevGallery => [newGalleryItem, ...prevGallery]);
+        setPotentialGalleryItem(itemToSave);
+        setIsCurrentResultSaved(false); // New refined image is not saved yet
         
         setAdvancedPrompt(''); // Clear prompt after successful refinement
       }
@@ -129,6 +121,17 @@ const App: React.FC = () => {
     }
   };
   
+  const handleSaveToGallery = useCallback(() => {
+    if (!potentialGalleryItem || isCurrentResultSaved) return;
+
+    const newGalleryItem: GalleryItem = {
+      ...potentialGalleryItem,
+      id: Date.now().toString(),
+    };
+    setGallery(prevGallery => [newGalleryItem, ...prevGallery]);
+    setIsCurrentResultSaved(true);
+  }, [potentialGalleryItem, isCurrentResultSaved]);
+
   const isVisualizeDisabled = !siteImage || !pavingSelection.image || isLoading || isRefining || isSwatchLoading;
 
   const getButtonText = () => {
@@ -164,7 +167,7 @@ const App: React.FC = () => {
                 px-8 py-4 text-lg font-bold text-white rounded-full transition-all duration-300 ease-in-out
                 ${isVisualizeDisabled 
                   ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed' 
-                  : 'bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transform hover:scale-105 shadow-lg'
+                  : 'bg-londonstone-red hover:bg-londonstone-red-dark transform hover:scale-105 shadow-lg'
                 }
               `}
             >
@@ -182,6 +185,8 @@ const App: React.FC = () => {
               advancedPrompt={advancedPrompt}
               onAdvancedPromptChange={setAdvancedPrompt}
               onRefine={handleRefine}
+              onSaveToGallery={handleSaveToGallery}
+              isCurrentResultSaved={isCurrentResultSaved}
             />
         </div>
         

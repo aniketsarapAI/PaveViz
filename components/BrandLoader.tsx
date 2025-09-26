@@ -1,56 +1,18 @@
+
 import React from 'react';
 
 interface BrandLoaderProps {
   className?: string;
 }
 
-export const BrandLoader: React.FC<BrandLoaderProps> = ({ className }) => {
-  // A pattern of stones that animate sequentially, as if laying a path.
-  const stones = [
-    { top: '15%', left: '35%', width: '30%', height: '15%', delay: '0s' },
-    { top: '33%', left: '20%', width: '30%', height: '15%', delay: '0.15s' },
-    { top: '33%', left: '50%', width: '30%', height: '15%', delay: '0.3s' },
-    { top: '51%', left: '35%', width: '30%', height: '15%', delay: '0.45s' },
-    { top: '69%', left: '20%', width: '30%', height: '15%', delay: '0.6s' },
-    { top: '69%', left: '50%', width: '30%', height: '15%', delay: '0.75s' },
-  ];
+const logoUrl = 'data:image/png;base64,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';
 
+export const BrandLoader: React.FC<BrandLoaderProps> = ({ className }) => {
   return (
     <>
       <div className={`relative w-16 h-16 ${className}`}>
-        {stones.map((stone, i) => (
-          <div
-            key={i}
-            className="absolute bg-indigo-500/75 dark:bg-indigo-400/75 rounded-md animate-stone-appear"
-            style={{
-              top: stone.top,
-              left: stone.left,
-              width: stone.width,
-              height: stone.height,
-              animationDelay: stone.delay
-            }}
-          />
-        ))}
+        <img src={logoUrl} alt="London Stone Logo loading" className="w-full h-full animate-pulse" />
       </div>
-      <style>{`
-        @keyframes stone-appear {
-          0% {
-            opacity: 0;
-            transform: scale(0.5);
-          }
-          50% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          100% {
-            opacity: 0;
-            transform: scale(0.5);
-          }
-        }
-        .animate-stone-appear {
-          animation: stone-appear 2s ease-in-out infinite;
-        }
-      `}</style>
     </>
   );
 };

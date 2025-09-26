@@ -1,3 +1,5 @@
+
+
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import type { ImageFile, GenerationResult } from '../types';
 import { processDataUrlToImageFile, resizeImageToMatch } from '../utils/fileUtils';
@@ -21,17 +23,6 @@ CRITICAL INSTRUCTIONS:
 4.  **Photorealism:** The result must look like a real photograph.
 5.  **Exact Dimensions:** The output image must be exactly ${width}x${height} pixels.
 6.  **Ground Only:** Only replace the existing ground material (e.g., pavers, porcelain paving, planks). Do not cover objects that are on the ground.`;
-
-const REFINE_VISUALIZATION_PROMPT_TEMPLATE = (width: number, height: number) => `OUTPUT: Return exactly one image (${width}x${height}). No text. Do not crop/pad/resize.
-
-You are an expert AI photo editor. You will receive an image after this text instruction. Your task is to apply the instruction to the provided image.
-
-CRITICAL INSTRUCTIONS:
-1.  **Output Image Only:** Your entire response must be ONLY the final image. Do not include any text, explanation, or markdown.
-2.  **Follow the User's Request:** Apply the user's change precisely to the image.
-3.  **Minimal Change:** Only modify what is necessary. The rest of the image should remain unchanged.
-4.  **Maintain Realism:** The final image must remain photorealistic.
-5.  **Exact Dimensions:** The output image MUST have the exact same dimensions as the input image: ${width} pixels wide and ${height} pixels high.`;
 
 
 const SUMMARIZE_REFINEMENT_PROMPT = `You are a helpful assistant. A user provided a short, imperative instruction to an AI image editor. Your task is to convert this instruction into a clean, past-tense, descriptive sentence fragment that would be suitable for a design report.
@@ -154,7 +145,7 @@ export const generateInitialVisualization = async (
         ],
       },
       config: {
-        responseModalities: [Modality.IMAGE],
+        responseModalities: [Modality.IMAGE, Modality.TEXT],
       },
     });
     
@@ -176,19 +167,37 @@ export const generateInitialVisualization = async (
 };
 
 export const refineVisualization = async (
-  baseImage: ImageFile,
+  baseImage: ImageFile, // This is now the original siteImage
+  pavingImage: ImageFile,
   refinementPrompt: string
 ): Promise<GenerationResult> => {
   try {
+    // This prompt instructs the AI to redo the initial visualization from the original photo
+    // AND apply the new refinement instruction in a single step. This breaks the "zoom" feedback loop.
+    const combinedPrompt = `
+${INITIAL_GENERATION_PROMPT_TEMPLATE(baseImage.width, baseImage.height)}
+
+**ADDITIONAL REFINEMENT INSTRUCTION:**
+After applying the paving as described above, you must also apply the following user instruction to the image: "${refinementPrompt}".
+
+The final image must incorporate both the paving replacement and this additional refinement.
+    `;
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image-preview',
       contents: {
         parts: [
-          { text: `${REFINE_VISUALIZATION_PROMPT_TEMPLATE(baseImage.width, baseImage.height)}\n\nUser's instruction: "${refinementPrompt}"` },
+          { text: combinedPrompt },
           {
             inlineData: {
               mimeType: baseImage.mimeType,
               data: baseImage.base64,
+            },
+          },
+           {
+            inlineData: {
+              mimeType: pavingImage.mimeType,
+              data: pavingImage.base64,
             },
           },
         ],

@@ -154,7 +154,7 @@ export const PavingSelector: React.FC<PavingSelectorProps> = ({ onPavingChange, 
               onClick={() => setActiveCategory(category)}
               className={`w-full px-3 py-1 text-xs font-semibold rounded-md transition-colors capitalize ${
                 activeCategory === category
-                  ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow'
+                  ? 'bg-white dark:bg-slate-600 text-londonstone-red dark:text-white shadow'
                   : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
@@ -170,8 +170,8 @@ export const PavingSelector: React.FC<PavingSelectorProps> = ({ onPavingChange, 
                           onClick={() => handleProductSelect(product)}
                           className={`relative block w-full aspect-square rounded-md overflow-hidden border-2 transition-all duration-200 group ${
                               selectedProduct?.product_file_id === product.product_file_id
-                              ? 'border-indigo-500 ring-2 ring-indigo-500'
-                              : 'border-slate-200 dark:border-slate-600 hover:border-indigo-400'
+                              ? 'border-londonstone-red ring-2 ring-londonstone-red'
+                              : 'border-slate-200 dark:border-slate-600 hover:border-londonstone-red/50'
                           }`}
                       >
                           <img src={product.product_img_url} alt={product.product_name} className="w-full h-full object-cover bg-slate-200 dark:bg-slate-600 group-hover:scale-105 transition-transform duration-200"/>
@@ -183,7 +183,7 @@ export const PavingSelector: React.FC<PavingSelectorProps> = ({ onPavingChange, 
                           )}
 
                           {selectedProduct?.product_file_id === product.product_file_id && isSwatchLoading !== product.product_file_id && (
-                              <div className="absolute inset-0 bg-indigo-500/50 flex items-center justify-center">
+                              <div className="absolute inset-0 bg-londonstone-red/50 flex items-center justify-center">
                                   <CheckIcon className="w-6 h-6 text-white"/>
                               </div>
                           )}

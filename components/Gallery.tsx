@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { GalleryItem } from '../types';
 import jsPDF from 'jspdf';
@@ -121,11 +122,11 @@ export const Gallery: React.FC<GalleryProps> = ({ gallery }) => {
       <div className="w-full bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
-            Design History
+            Design Gallery
           </h2>
           <button
             onClick={handleDownloadPdf}
-            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition-colors"
+            className="px-4 py-2 text-sm font-semibold text-white bg-londonstone-red rounded-md hover:bg-londonstone-red-dark transition-colors"
           >
             Download Report as PDF
           </button>

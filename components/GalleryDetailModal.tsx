@@ -60,7 +60,7 @@ export const GalleryDetailModal: React.FC<GalleryDetailModalProps> = ({ item, on
               onClick={() => setView('generated')}
               className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
                 view === 'generated'
-                  ? 'bg-indigo-600 text-white shadow'
+                  ? 'bg-londonstone-red text-white shadow'
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'
               }`}
             >
@@ -70,7 +70,7 @@ export const GalleryDetailModal: React.FC<GalleryDetailModalProps> = ({ item, on
               onClick={() => setView('original')}
               className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
                 view === 'original'
-                  ? 'bg-indigo-600 text-white shadow'
+                  ? 'bg-londonstone-red text-white shadow'
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'
               }`}
             >

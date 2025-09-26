@@ -14,8 +14,8 @@ export const AdvancedPromptInput: React.FC<AdvancedPromptInputProps> = ({ value,
       <textarea
         id="advanced-prompt"
         rows={2}
-        className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-        placeholder={'e.g., "Don\'t cover the flower pot on the left", "Make the paving stones a bit larger"'}
+        className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 focus:ring-2 focus:ring-londonstone-red focus:border-londonstone-red transition-colors"
+        placeholder={'e.g., "Change the paving layout to a straight grid pattern.", "Make the paving a bit larger"'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

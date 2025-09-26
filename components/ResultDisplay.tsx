@@ -1,10 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+
+import React, 'react';
 import type { ImageFile } from '../types';
 import { ReactCompareSlider, ReactCompareSliderImage } from 'react-compare-slider';
 import { AdvancedPromptInput } from './AdvancedPromptInput';
 import { LoadingIndicator } from './LoadingIndicator';
-import { BrandLoader } from './BrandLoader';
+import { MultiStepLoaderAnimation } from './MultiStepLoaderAnimation';
 
 interface ResultDisplayProps {
   isLoading: boolean;
@@ -15,6 +16,8 @@ interface ResultDisplayProps {
   advancedPrompt: string;
   onAdvancedPromptChange: (value: string) => void;
   onRefine: () => void;
+  onSaveToGallery: () => void;
+  isCurrentResultSaved: boolean;
 }
 
 const REFINING_MESSAGES = [
@@ -34,18 +37,20 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   advancedPrompt,
   onAdvancedPromptChange,
   onRefine,
+  onSaveToGallery,
+  isCurrentResultSaved,
 }) => {
-  const [refiningMessageIndex, setRefiningMessageIndex] = useState(0);
+  const [refiningMessageIndex, setRefiningMessageIndex] = React.useState(0);
 
   // When refining starts, reset the message index.
-  useEffect(() => {
+  React.useEffect(() => {
     if (isRefining) {
       setRefiningMessageIndex(0);
     }
   }, [isRefining]);
 
   // Sequentially progress through messages without looping.
-  useEffect(() => {
+  React.useEffect(() => {
     let timer: number | undefined;
     if (isRefining && refiningMessageIndex < REFINING_MESSAGES.length - 1) {
       timer = window.setTimeout(() => {
@@ -90,7 +95,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
             {/* --- Refining Overlay --- */}
             {isRefining && (
               <div className="absolute inset-2 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-xl animate-fade-in-fast">
-                <BrandLoader className="w-12 h-12" />
+                <MultiStepLoaderAnimation step={refiningMessageIndex} />
                 <p className="mt-4 font-semibold text-white text-center transition-opacity duration-500 px-4" key={refiningMessageIndex}>
                   {REFINING_MESSAGES[refiningMessageIndex]}
                 </p>
@@ -120,7 +125,40 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
               value={advancedPrompt}
               onChange={onAdvancedPromptChange}
             />
-            <div className="mt-4 text-center">
+             <div className="mt-3 flex items-center justify-center flex-wrap gap-2">
+                <button
+                    onClick={() => onAdvancedPromptChange("Change the paving layout to a straight grid pattern.")}
+                    className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                >
+                    Change to grid pattern
+                </button>
+                <button
+                    onClick={() => onAdvancedPromptChange("Make the paving a bit larger.")}
+                    className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                >
+                    Make paving larger
+                </button>
+                <button
+                    onClick={() => onAdvancedPromptChange("Ensure all paved ground surfaces are replaced with the selected paving swatch. Do not miss any sections.")}
+                    className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                >
+                    Replace all surfaces
+                </button>
+            </div>
+            <div className="mt-4 flex flex-wrap justify-center items-center gap-4">
+              <button
+                  onClick={onSaveToGallery}
+                  disabled={isCurrentResultSaved}
+                  className={`
+                    px-6 py-3 text-md font-bold text-white rounded-full transition-all duration-300 ease-in-out
+                    ${isCurrentResultSaved
+                        ? 'bg-green-600 cursor-default'
+                        : 'bg-londonstone-charcoal hover:bg-opacity-90 dark:hover:bg-gray-600 transform hover:scale-105'
+                    }
+                  `}
+                >
+                  {isCurrentResultSaved ? '✓ Saved to Gallery' : '💾 Save to Gallery'}
+              </button>
                <button
                 onClick={onRefine}
                 disabled={isRefining}
@@ -128,7 +166,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                   px-6 py-3 text-md font-bold text-white rounded-full transition-all duration-300 ease-in-out
                   ${isRefining 
                     ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed' 
-                    : 'bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transform hover:scale-105'
+                    : 'bg-londonstone-charcoal hover:bg-opacity-90 dark:hover:bg-gray-600 transform hover:scale-105'
                   }
                 `}
               >
