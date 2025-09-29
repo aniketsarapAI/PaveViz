@@ -8,6 +8,7 @@ import { ResultDisplay } from './components/ResultDisplay';
 import { Gallery } from './components/Gallery';
 import { generateInitialVisualization, refineVisualization, summarizeRefinement } from './services/geminiService';
 import type { ImageFile, GalleryItem } from './types';
+import { HistoryModal } from './components/HistoryModal';
 
 interface PavingSelection {
   image: ImageFile | null;
@@ -23,7 +24,11 @@ const App: React.FC = () => {
   const [isSwatchLoading, setIsSwatchLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [advancedPrompt, setAdvancedPrompt] = useState<string>('');
+  
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [sessionHistory, setSessionHistory] = useState<GalleryItem[]>([]);
+  const [isHistoryVisible, setIsHistoryVisible] = useState<boolean>(false);
+
   const [potentialGalleryItem, setPotentialGalleryItem] = useState<Omit<GalleryItem, 'id'> | null>(null);
   const [isCurrentResultSaved, setIsCurrentResultSaved] = useState<boolean>(false);
 
@@ -32,6 +37,8 @@ const App: React.FC = () => {
     setSiteImage(image);
     setResultImage(null); // Reset result on new image
     setError(null);
+    setGallery([]); // Reset gallery for new project
+    setSessionHistory([]); // Reset history for new project
   }, []);
 
   const handlePavingSelectionChange = useCallback((selection: PavingSelection) => {
@@ -39,6 +46,14 @@ const App: React.FC = () => {
     setResultImage(null); // Reset result on new selection
     setError(null);
   }, []);
+  
+  const addToHistory = (item: Omit<GalleryItem, 'id'>) => {
+    const newHistoryItem: GalleryItem = {
+      ...item,
+      id: `session-${Date.now()}` // Use a unique prefix for session items
+    };
+    setSessionHistory(prev => [newHistoryItem, ...prev]);
+  };
 
   const handleVisualize = async () => {
     if (!siteImage || !pavingSelection.image || !pavingSelection.name) {
@@ -66,6 +81,7 @@ const App: React.FC = () => {
           isInitial: true,
         };
         setPotentialGalleryItem(itemToSave);
+        addToHistory(itemToSave);
         setIsCurrentResultSaved(false); // New image is not saved yet
       }
     } catch (err) {
@@ -108,6 +124,7 @@ const App: React.FC = () => {
         };
         
         setPotentialGalleryItem(itemToSave);
+        addToHistory(itemToSave);
         setIsCurrentResultSaved(false); // New refined image is not saved yet
         
         setAdvancedPrompt(''); // Clear prompt after successful refinement
@@ -131,6 +148,18 @@ const App: React.FC = () => {
     setGallery(prevGallery => [newGalleryItem, ...prevGallery]);
     setIsCurrentResultSaved(true);
   }, [potentialGalleryItem, isCurrentResultSaved]);
+
+  const handleToggleHistory = () => setIsHistoryVisible(prev => !prev);
+
+  const handleMoveToGallery = useCallback((itemToMove: GalleryItem) => {
+    // Check if an item with the same generated image data already exists in the main gallery
+    const isAlreadyInGallery = gallery.some(item => item.generatedImage.dataUrl === itemToMove.generatedImage.dataUrl);
+
+    if (!isAlreadyInGallery) {
+      setGallery(prevGallery => [itemToMove, ...prevGallery]);
+    }
+  }, [gallery]);
+
 
   const isVisualizeDisabled = !siteImage || !pavingSelection.image || isLoading || isRefining || isSwatchLoading;
 
@@ -187,6 +216,8 @@ const App: React.FC = () => {
               onRefine={handleRefine}
               onSaveToGallery={handleSaveToGallery}
               isCurrentResultSaved={isCurrentResultSaved}
+              pavingName={pavingSelection.name}
+              onToggleHistory={handleToggleHistory}
             />
         </div>
         
@@ -197,6 +228,14 @@ const App: React.FC = () => {
         )}
 
       </main>
+       {isHistoryVisible && (
+        <HistoryModal
+          history={sessionHistory}
+          gallery={gallery}
+          onClose={handleToggleHistory}
+          onMoveToGallery={handleMoveToGallery}
+        />
+      )}
       <footer className="text-center p-4 text-xs text-slate-500">
         Powered by Gemini AI
       </footer>

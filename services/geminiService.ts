@@ -12,17 +12,24 @@ if (!API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-const INITIAL_GENERATION_PROMPT_TEMPLATE = (width: number, height: number) => `OUTPUT: Return exactly one image (${width}x${height}). No text. Do not crop/pad/resize.
+const INITIAL_GENERATION_PROMPT_TEMPLATE = (width: number, height: number) => `You are an AI specializing in photorealistic architectural visualization. You will receive two images: the 'site photo' and the 'paving swatch'.
 
-You are an AI specializing in photorealistic architectural visualization. You will receive two images after this text: first the site photo, then the paving swatch. Your task is to replace the ground surface in the first image (the site photo) with the texture from the second image (the paving swatch).
+**PRIMARY OBJECTIVE:** Your task is to replace the ground surfaces in the 'site photo' using the texture provided in the 'paving swatch'.
 
-CRITICAL INSTRUCTIONS:
-1.  **Output Image Only:** Your entire response must be ONLY the final image. Do not include any text, explanation, or markdown.
-2.  **Preserve Everything Else:** Do NOT alter any other part of the site photo. All objects, furniture, plants, walls, buildings, and the sky must remain IDENTICAL to the original.
-3.  **Seamless Integration:** The new paving must be perfectly integrated. Match the original photo's perspective, lighting, shadows, and overall atmosphere.
-4.  **Photorealism:** The result must look like a real photograph.
-5.  **Exact Dimensions:** The output image must be exactly ${width}x${height} pixels.
-6.  **Ground Only:** Only replace the existing ground material (e.g., pavers, porcelain paving, planks). Do not cover objects that are on the ground.`;
+**CRITICAL RULE #1: USE THE SWATCH TEXTURE EXCLUSIVELY**
+The second image ('paving swatch') is the ONLY source for the new paving material. You MUST replicate its appearance exactly.
+- **Color:** The color of the new paving must precisely match the swatch.
+- **Pattern & Grain:** The pattern, texture, and grain of the new paving must be taken directly from the swatch.
+- **Fidelity:** Do not invent a new texture. Do not alter, fade, or recolor the swatch texture. Your job is to apply it realistically to the scene.
+- **FAILURE CHECK:** If the new paving does not visibly and accurately match the swatch image, the task is a failure.
+
+**CRITICAL RULE #2: PRESERVE EVERYTHING ELSE**
+Do NOT alter any other part of the site photo. All objects, furniture, plants, walls, buildings, and the sky must remain IDENTICAL to the original. Shadows and lighting should be realistically cast onto the NEW paving surface.
+
+**FINAL INSTRUCTIONS:**
+1.  **Input Images:** The first image is the 'site photo'. The second image is the 'paving swatch'.
+2.  **Ground Surfaces Only:** Only replace existing ground materials (e.g., pavers, concrete, planks). Do not cover objects that are on the ground.
+3.  **Output:** Your entire response must be ONLY the final image, with no text or explanation. The output image must be exactly ${width}x${height} pixels.`;
 
 
 const SUMMARIZE_REFINEMENT_PROMPT = `You are a helpful assistant. A user provided a short, imperative instruction to an AI image editor. Your task is to convert this instruction into a clean, past-tense, descriptive sentence fragment that would be suitable for a design report.

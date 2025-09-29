@@ -1,3 +1,4 @@
+
 import type { ImageFile } from '../types';
 
 export const getImageDimensions = (dataUrl: string): Promise<{ width: number; height: number }> => {
@@ -69,4 +70,18 @@ export const resizeImageToMatch = async (
       width: targetWidth,
       height: targetHeight,
     };
+};
+
+/**
+ * Triggers a browser download for a given ImageFile.
+ * @param imageFile The image to download.
+ * @param fileName The desired name for the downloaded file.
+ */
+export const downloadImage = (imageFile: ImageFile, fileName: string) => {
+  const link = document.createElement('a');
+  link.href = imageFile.dataUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };

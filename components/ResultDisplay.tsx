@@ -1,11 +1,11 @@
 
-
-import React, 'react';
+import React from 'react';
 import type { ImageFile } from '../types';
 import { ReactCompareSlider, ReactCompareSliderImage } from 'react-compare-slider';
 import { AdvancedPromptInput } from './AdvancedPromptInput';
 import { LoadingIndicator } from './LoadingIndicator';
 import { MultiStepLoaderAnimation } from './MultiStepLoaderAnimation';
+import { HistoryIcon } from './icons/HistoryIcon';
 
 interface ResultDisplayProps {
   isLoading: boolean;
@@ -18,6 +18,8 @@ interface ResultDisplayProps {
   onRefine: () => void;
   onSaveToGallery: () => void;
   isCurrentResultSaved: boolean;
+  pavingName: string | null;
+  onToggleHistory: () => void;
 }
 
 const REFINING_MESSAGES = [
@@ -39,6 +41,8 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   onRefine,
   onSaveToGallery,
   isCurrentResultSaved,
+  pavingName,
+  onToggleHistory
 }) => {
   const [refiningMessageIndex, setRefiningMessageIndex] = React.useState(0);
 
@@ -114,6 +118,21 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
               }
               className="w-full h-full rounded-xl"
             />
+
+            {/* --- Save to Gallery Button --- */}
+            <button
+              onClick={onSaveToGallery}
+              disabled={isCurrentResultSaved}
+              className={`
+                absolute bottom-4 right-4 z-20 px-4 py-2 text-sm font-bold text-white rounded-full transition-all duration-300 ease-in-out backdrop-blur-sm
+                ${isCurrentResultSaved
+                    ? 'bg-green-600/80 cursor-default'
+                    : 'bg-black/50 hover:bg-black/70'
+                }
+              `}
+            >
+              {isCurrentResultSaved ? '✓ Saved' : '💾 Save to Project Gallery'}
+            </button>
           </div>
           <div className="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50">
              {error && (
@@ -124,54 +143,54 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
             <AdvancedPromptInput 
               value={advancedPrompt}
               onChange={onAdvancedPromptChange}
+              pavingName={pavingName}
             />
-             <div className="mt-3 flex items-center justify-center flex-wrap gap-2">
-                <button
-                    onClick={() => onAdvancedPromptChange("Change the paving layout to a straight grid pattern.")}
-                    className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-                >
-                    Change to grid pattern
-                </button>
-                <button
-                    onClick={() => onAdvancedPromptChange("Make the paving a bit larger.")}
-                    className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-                >
-                    Make paving larger
-                </button>
-                <button
-                    onClick={() => onAdvancedPromptChange("Ensure all paved ground surfaces are replaced with the selected paving swatch. Do not miss any sections.")}
-                    className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-                >
-                    Replace all surfaces
-                </button>
-            </div>
-            <div className="mt-4 flex flex-wrap justify-center items-center gap-4">
-              <button
-                  onClick={onSaveToGallery}
-                  disabled={isCurrentResultSaved}
-                  className={`
-                    px-6 py-3 text-md font-bold text-white rounded-full transition-all duration-300 ease-in-out
-                    ${isCurrentResultSaved
-                        ? 'bg-green-600 cursor-default'
-                        : 'bg-londonstone-charcoal hover:bg-opacity-90 dark:hover:bg-gray-600 transform hover:scale-105'
-                    }
-                  `}
-                >
-                  {isCurrentResultSaved ? '✓ Saved to Gallery' : '💾 Save to Gallery'}
-              </button>
-               <button
-                onClick={onRefine}
-                disabled={isRefining}
-                className={`
-                  px-6 py-3 text-md font-bold text-white rounded-full transition-all duration-300 ease-in-out
-                  ${isRefining 
-                    ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed' 
-                    : 'bg-londonstone-charcoal hover:bg-opacity-90 dark:hover:bg-gray-600 transform hover:scale-105'
-                  }
-                `}
-              >
-                {isRefining ? 'Refining...' : '♻️ Refine Result'}
-              </button>
+            <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+                {/* Left group for suggestions */}
+                <div className="flex items-center flex-wrap gap-2">
+                    <button
+                        onClick={() => onAdvancedPromptChange("Change the paving layout to a straight grid pattern.")}
+                        className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                    >
+                        Change to grid pattern
+                    </button>
+                    <button
+                        onClick={() => onAdvancedPromptChange("Make the paving a bit larger.")}
+                        className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                    >
+                        Make paving larger
+                    </button>
+                    <button
+                        onClick={() => onAdvancedPromptChange("Ensure all paved ground surfaces are replaced with the selected paving swatch. Do not miss any sections.")}
+                        className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                    >
+                        Replace all surfaces
+                    </button>
+                </div>
+
+                {/* Right group for actions */}
+                <div className="flex flex-col items-end gap-2">
+                    <button
+                        onClick={onRefine}
+                        disabled={isRefining}
+                        className={`
+                        px-6 py-3 text-md font-bold text-white rounded-full transition-all duration-300 ease-in-out
+                        ${isRefining 
+                            ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed' 
+                            : 'bg-londonstone-charcoal hover:bg-opacity-90 dark:hover:bg-gray-600 transform hover:scale-105'
+                        }
+                        `}
+                    >
+                        {isRefining ? 'Refining...' : '♻️ Refine Result'}
+                    </button>
+                     <button
+                        onClick={onToggleHistory}
+                        className="px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-700 rounded-full transition-all duration-300 ease-in-out hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center gap-2"
+                    >
+                        <HistoryIcon className="w-4 h-4" />
+                        Session History
+                    </button>
+                </div>
             </div>
           </div>
         </div>
